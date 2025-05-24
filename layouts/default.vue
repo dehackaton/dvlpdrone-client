@@ -1,9 +1,11 @@
+import { Header } from '../.nuxt/components';
 <template>
   <div>
-  <header>header</header>
-    <slot />
-  </div>
-  <footer>footer</footer>
+    <Header />
+      <div class="max-w-screen-xl mx-auto p-4">
+        <slot />
+      </div>
+    </div>
 </template>
 
 <script lang="ts" setup>
