@@ -1,142 +1,167 @@
 <template>
-    <div class="flex h-[75vh] bg-gray-50 rounded shadow p-4 gap-4">
-      <!-- Видео: 75% -->
-      <div class="w-3/4 bg-black flex items-center justify-center rounded">
-        <video
-          ref="video"
-          class="w-full h-full object-contain"
-          controls
-          autoplay
-          muted
-        ></video>
+  <div class="min-h-screen bg-white text-black p-4 space-y-4">
+    <!-- Header -->
+    <header class="flex justify-between items-center">
+      <h1 class="text-2xl font-bold">Drone Tracker</h1>
+      <nav class="flex space-x-4 text-gray-600">
+        <button>Карта</button>
+        <button>Видеострим</button>
+        <button>Профиль</button>
+      </nav>
+    </header>
+
+    <!-- Tabs -->
+    <div class="flex space-x-2">
+      <button class="bg-black text-white px-4 py-2 rounded-xl">Карта</button>
+      <button class="bg-gray-200 text-black px-4 py-2 rounded-xl">Видеострим</button>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex gap-4">
+      <!-- Left Column: Search and Map -->
+      <div class="flex-1 space-y-4">
+        <!-- Search -->
+        <div class="flex items-center bg-gray-100 p-2 rounded-xl">
+          <span class="text-gray-500 mr-2">🔍</span>
+          <input
+            type="text"
+            placeholder="Введите локацию"
+            class="bg-transparent outline-none w-full"
+          />
+        </div>
+
+        <!-- Map Container -->
+        <div class="rounded-xl overflow-hidden shadow-md border h-[600px]">
+          <ClientOnly>
+            <div 
+              id="map-container" 
+              class="h-full w-full leaflet-container"
+            ></div>
+            <template #fallback>
+              <div class="h-full flex items-center justify-center text-gray-500">
+                Загрузка карты...
+              </div>
+            </template>
+          </ClientOnly>
+        </div>
       </div>
 
-      <!-- Правая панель: 25% -->
-      <div class="w-1/4 border border-gray-300 rounded p-4 flex flex-col overflow-y-auto">
-        <!-- Телеметрия -->
-        <div class="mb-4">
-          <h2 class="text-lg font-semibold mb-2">Телеметрия</h2>
-          <div class="text-sm text-gray-700 space-y-1">
-            <div>Скорость: {{ telemetry.speed }} км/ч</div>
-            <div>Температура: {{ telemetry.temp }} °C</div>
-            <div>Статус: {{ isStreaming ? 'Активен' : 'Остановлен' }}</div>
+      <!-- Right Column: Info Panel -->
+      <div class="w-[350px]">
+        <div class="bg-white shadow-md rounded-xl border p-4 space-y-4">
+          <div class="bg-cyan-400 rounded-xl p-4 text-white font-semibold">
+            <div class="flex justify-between items-center">
+              <div>
+                <div>DJI Mavic Pro</div>
+                <div class="text-sm">FHD high-Framerate Live Feed</div>
+              </div>
+              <img src="assets/1b20bbbb201d0ab7eeefd9b637c4d905dd8df894.png" alt="Drone" class="h-10">
+            </div>
+          </div>
+
+          <div>
+            <div class="font-semibold">Местоположение</div>
+            <p>ул. Абая 58, Астана, Казахстан</p>
+          </div>
+
+          <div>
+            <div class="font-semibold">Основные координаты:</div>
+            <p>Широта: 51.1605</p>
+            <p>Долгота: 71.4704</p>
+          </div>
+
+          <div>
+            <div class="font-semibold">Геоинформация точки:</div>
+            <pre class="bg-gray-100 p-2 rounded text-sm">
+{
+  "latitude": 51.1605,
+  "longitude": 71.4704,
+  "altitude": 850,
+  "name": "Астана",
+  "address": "ул. Абая 58, Астана, Казахстан",
+  "timezone": "Asia/Almaty",
+  "point_type": "место отдыха",
+  "country_code": "KZ"
+}
+            </pre>
           </div>
         </div>
-
-        <!-- График -->
-        <div class="mb-4">
-          <h3 class="text-md font-semibold mb-2">Температура</h3>
-          <LineChart :data="chartData" :options="chartOptions" />
-        </div>
-
-        <!-- Кнопки -->
-        <div class="mt-auto space-y-2">
-          <button
-            @click="stopStream"
-            class="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-          >
-            Стоп трансляции
-          </button>
-          <button
-            @click="restartStream"
-            class="w-full px-4 py-2 border rounded text-primary border-primary hover:bg-primary/10 transition"
-          >
-            Перезапустить
-          </button>
-        </div>
       </div>
-    </div>
+    </main>
+  </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
-import Hls from 'hls.js'
-import { Line } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  Title,
-  Tooltip,
-  Legend,
-  LineElement,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-} from 'chart.js'
+<script>
+import { onMounted } from 'vue';
 
-// Регистрация компонентов Chart.js
-ChartJS.register(Title, Tooltip, Legend, LineElement, CategoryScale, LinearScale, PointElement)
+export default {
+  setup() {
+    onMounted(async () => {
+      if (typeof window !== 'undefined') {
+        // Динамический импорт Leaflet
+        const L = await import('leaflet');
+        await import('leaflet/dist/leaflet.css');
+        
+        // Фикс для иконок маркеров
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+          iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+          shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+        });
 
-// Компонент графика
-const LineChart = defineComponent({
-  props: ['data', 'options'],
-  components: { Line },
-  template: `<Line :data="data" :options="options" />`,
-})
+        // Координаты центра карты (Астана)
+        const center = [51.1605, 71.4704];
+        
+        // Инициализация карты
+        const map = L.map('map-container').setView(center, 13);
+        
+        // Добавление слоя с тайлами
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+        }).addTo(map);
 
-const video = ref(null)
-let hlsInstance = null
-const streamUrl = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'
+        // Добавление маркера
+        L.marker(center)
+          .addTo(map)
+          .bindPopup('Дрон здесь');
 
-const isStreaming = ref(true)
-const telemetry = ref({
-  speed: 65,
-  temp: 42,
-})
-
-// Имитация графика температуры
-const chartData = ref({
-  labels: ['0с', '5с', '10с', '15с', '20с'],
-  datasets: [
-    {
-      label: 'Температура °C',
-      data: [40, 42, 43, 42, 44],
-      borderColor: '#3B82F6',
-      backgroundColor: 'rgba(59,130,246,0.1)',
-      tension: 0.4,
-      fill: true,
-    },
-  ],
-})
-
-const chartOptions = {
-  responsive: true,
-  scales: {
-    y: {
-      beginAtZero: true,
-    },
-  },
-}
-
-// Поток
-const startStream = () => {
-  if (Hls.isSupported()) {
-    hlsInstance = new Hls()
-    hlsInstance.loadSource(streamUrl)
-    hlsInstance.attachMedia(video.value)
-    isStreaming.value = true
-  } else if (video.value.canPlayType('application/vnd.apple.mpegurl')) {
-    video.value.src = streamUrl
-    isStreaming.value = true
+        // Обновление размеров карты после загрузки
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 100);
+      }
+    });
   }
 }
-
-const stopStream = () => {
-  if (hlsInstance) {
-    hlsInstance.destroy()
-    hlsInstance = null
-  }
-  video.value.pause()
-  video.value.removeAttribute('src')
-  video.value.load()
-  isStreaming.value = false
-}
-
-const restartStream = () => {
-  stopStream()
-  setTimeout(() => startStream(), 500)
-}
-
-onMounted(() => {
-  startStream()
-})
 </script>
+
+<style>
+/* Импорт CSS Leaflet через CDN */
+@import url('https://unpkg.com/leaflet@1.7.1/dist/leaflet.css');
+
+/* Стили для контейнера карты */
+#map-container {
+  height: 600px;
+  width: 100%;
+  z-index: 0;
+}
+
+/* Фикс для фона карты */
+.leaflet-container {
+  background-color: #e8f4f8 !important;
+}
+
+/* Адаптация под мобильные устройства */
+@media (max-width: 768px) {
+  .flex {
+    flex-direction: column;
+  }
+  
+  .w-\[350px\] {
+    width: 100%;
+    margin-top: 1rem;
+  }
+}
+</style>
