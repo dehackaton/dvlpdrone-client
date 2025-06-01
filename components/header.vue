@@ -42,7 +42,7 @@
           alt="Hрофиль"
           size="md"
         />
-        <span class="font-semibold">Hasan</span>
+        <span class="font-semibold">Dev</span>
       </div>
     </div>
   </header>
